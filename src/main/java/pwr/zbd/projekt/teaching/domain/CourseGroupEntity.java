@@ -5,6 +5,7 @@ import lombok.*;
 import pwr.zbd.projekt.structure.domain.RoomEntity;
 import pwr.zbd.projekt.users.domain.InstructorEntity;
 
+import java.util.List;
 import java.util.UUID;
 
 @Entity
@@ -34,4 +35,7 @@ public class CourseGroupEntity {
     private Integer groupNum;
     @Column(nullable = false)
     private Integer capacity;
+    
+    @OneToMany(mappedBy = "courseGroup", fetch = FetchType.LAZY)
+    private List<EnrollmentEntity> enrollments;
 }
