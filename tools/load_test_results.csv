@@ -1,0 +1,2 @@
+﻿"ConcurrentUsers","RealParallelism","AvgResponseTimeMs","MinResponseTimeMs","MaxResponseTimeMs","SuccessRate","TotalRequests","FailedRequests","StatusCodes"
+"850","850","2111,26","27","6415","100","17000","0","201:16671 409:329"

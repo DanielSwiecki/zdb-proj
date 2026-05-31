@@ -4,6 +4,10 @@ import jakarta.persistence.*;
 import lombok.*;
 import pwr.zbd.projekt.users.domain.StudentEntity;
 
+/**
+ * Zapis studenta na grupę zajęciową. Klucz główny: {@link EnrollmentId} (student + grupa).
+ * {@code @MapsId} przepisuje UUID z powiązanych encji do pól embedowalnego klucza.
+ */
 @Entity
 @Table(name = "enrollments")
 @NoArgsConstructor

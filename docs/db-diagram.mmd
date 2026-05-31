@@ -1,0 +1,80 @@
+erDiagram
+  buildings {
+    UUID id PK
+    VARCHAR name
+  }
+  course_groups {
+    UUID id PK
+    INT groupNum
+    INT capacity
+  }
+  courses {
+    UUID id PK
+    VARCHAR name
+  }
+  degree_programs {
+    UUID id PK
+    VARCHAR name
+  }
+  enrollments {
+    ENROLLMENTID enrollmentId PK
+    INT grade
+  }
+  faculties {
+    UUID id PK
+    VARCHAR name
+  }
+  instructors {
+    UUID userId PK
+    VARCHAR title
+  }
+  rooms {
+    UUID id PK
+    VARCHAR name
+  }
+  students {
+    UUID userId PK
+    INT index
+  }
+  students_stages {
+    STUDENTSTAGEID studentStageId PK
+    STATUS status
+  }
+  study_stages {
+    UUID id PK
+    INT semesterNum
+    VARCHAR academicYear
+    TERMTYPE termType
+  }
+  universities {
+    UUID id PK
+    VARCHAR name
+  }
+  users {
+    UUID id PK
+    VARCHAR email
+    VARCHAR password
+    VARCHAR firstName
+    VARCHAR lastName
+  }
+  buildings }o--|| universities : "university_id"
+  degree_programs }o--|| faculties : "faculty_id"
+  faculties }o--|| universities : "university_id"
+  rooms }o--|| buildings : "building_id"
+  universities ||--o{ faculties : "OneToMany"
+  courses }o--|| degree_programs : "degree_program_id"
+  course_groups }o--|| courses : "course_id"
+  course_groups }o--|| study_stages : "study_stage_id"
+  course_groups }o--|| instructors : "instructor_id"
+  course_groups }o--|| rooms : "room_id"
+  course_groups ||--o{ enrollments : "OneToMany"
+  enrollments }o--|| students : "student_id"
+  enrollments }o--|| course_groups : "course_group_id"
+  students_stages }o--|| students : "student_id"
+  students_stages }o--|| study_stages : "study_stage_id"
+  study_stages }o--|| degree_programs : "degree_program_id"
+  study_stages }o--o{ courses : "study_stage_id"
+  instructors ||--|| users : "user_id"
+  instructors }o--|| faculties : "ManyToOne"
+  students ||--|| users : "user_id"
+  students }o--|| degree_programs : "degree_program_id"

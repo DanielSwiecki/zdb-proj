@@ -1,13 +1,17 @@
+# Konfiguracja Spring Boot: PostgreSQL + Hibernate + port HTTP API
 spring:
   application:
     name: zdb-project
   datasource:
+    # Port hosta 12345 — zgodny z docker-compose (mapowanie na 5432 w kontenerze)
     url: jdbc:postgresql://localhost:12345/zdb
     username: admin
     password: admin
   jpa:
     hibernate:
-      ddl-auto: create
+      # Schemat generowany z encji przy starcie.
+      # Używamy update, by kolejne batchowe uruchomienia nie kasowały już wstawionych danych.
+      ddl-auto: update
     properties:
       hibernate:
         dialect: org.hibernate.dialect.PostgreSQLDialect

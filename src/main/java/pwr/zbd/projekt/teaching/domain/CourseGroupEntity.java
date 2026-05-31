@@ -1,5 +1,6 @@
 package pwr.zbd.projekt.teaching.domain;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 import lombok.*;
 import pwr.zbd.projekt.structure.domain.RoomEntity;
@@ -37,5 +38,6 @@ public class CourseGroupEntity {
     private Integer capacity;
     
     @OneToMany(mappedBy = "courseGroup", fetch = FetchType.LAZY)
+    @JsonIgnore
     private List<EnrollmentEntity> enrollments;
 }

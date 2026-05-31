@@ -1,0 +1,118 @@
+# ============================================================================
+# Benchmark za pomocą JMeter
+# ============================================================================
+# Wymagania: JMeter - zainstaluj poprzez install-benchmarks.ps1
+
+$BaseDir = Split-Path -Parent $MyInvocation.MyCommand.Path
+$JMeterTestPlan = Join-Path $BaseDir "benchmark-api.jmx"
+$BaseUrl = "http://localhost:8081"
+$Threads = 10
+$RampUp = 30
+$Iterations = 100
+$OutputFile = Join-Path $BaseDir "..\results\jmeter-results-$(Get-Date -Format 'yyyyMMdd-HHmmss').jtl"
+
+Write-Host "🔥 Benchmark API za pomocą JMeter"
+Write-Host "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+Write-Host "URL: $BaseUrl"
+Write-Host "Wątki: $Threads"
+Write-Host "Ramp-up: $RampUp s"
+Write-Host "Iteracje: $Iterations per wątek = $(($Threads * $Iterations)) total"
+Write-Host "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`n"
+
+# Sprawdzenie czy JMeter jest zainstalowany
+$jmeter = Get-Command jmeter -ErrorAction SilentlyContinue
+if (-not $jmeter) {
+    $jmeterPath = "${env:ProgramFiles}\apache-jmeter\bin\jmeter.bat"
+    if (-not (Test-Path $jmeterPath)) {
+        Write-Host "✗ JMeter nie znaleziony w PATH"
+        Write-Host "  Uruchom: PowerShell -ExecutionPolicy Bypass -File tools\install-benchmarks.ps1"
+        exit 1
+    }
+    $jmeter = $jmeterPath
+}
+
+# Test dostępności API
+Write-Host "✓ Testowanie dostępności API..."
+try {
+    $response = curl -s -o /dev/null -w "%{http_code}" "$BaseUrl/api/course-groups"
+    if ($response -ne "200") {
+        throw "HTTP $response"
+    }
+} catch {
+    Write-Host "✗ Błąd: API niedostępny na $BaseUrl"
+    Write-Host "  Uruchom aplikację Spring Boot: ./mvnw spring-boot:run"
+    exit 1
+}
+Write-Host "✓ API dostępne`n"
+
+# Utwórz katalog na wyniki
+$resultDir = Split-Path -Parent $OutputFile
+if (-not (Test-Path $resultDir)) {
+    New-Item -ItemType Directory -Path $resultDir | Out-Null
+}
+
+# Uruchomienie JMeter
+Write-Host "⏳ Uruchamianie testu..."
+$startTime = Get-Date
+
+# Mode: GUI (visual) lub non-GUI (batch)
+$mode = $args[0] -eq "gui" ? "GUI" : "non-GUI"
+
+if ($mode -eq "GUI") {
+    Write-Host "  Uruchomienie JMeter w trybie GUI..."
+    & jmeter -t $JMeterTestPlan
+} else {
+    Write-Host "  Uruchomienie JMeter w trybie batch..."
+    & jmeter -n -t $JMeterTestPlan `
+             -Jthreads=$Threads `
+             -Jrampup=$RampUp `
+             -Jiterations=$Iterations `
+             -l $OutputFile `
+             -j "$BaseDir\..\logs\jmeter-$(Get-Date -Format 'yyyyMMdd-HHmmss').log"
+}
+
+$duration = (Get-Date) - $startTime
+Write-Host "`n✅ Test zakończony!"
+Write-Host "⏱️  Czas: $($duration.TotalSeconds.ToString('F1'))s"
+Write-Host "📄 Wyniki zapisane: $OutputFile`n"
+
+# Jeśli output istnieje, pokaż statystyki
+if (Test-Path $OutputFile) {
+    Write-Host "📊 Krótkie statystyki:"
+    Write-Host "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+    
+    # Czytanie JTL (CSV) - bardzo prosty parser
+    $lines = Get-Content $OutputFile | Select-Object -Skip 1
+    if ($lines.Count -gt 0) {
+        $times = @()
+        $success = 0
+        $failed = 0
+        
+        foreach ($line in $lines) {
+            $cols = $line -split ","
+            if ($cols.Count -gt 3) {
+                $time = [int]$cols[1]
+                $success_flag = $cols[2]
+                if ($time -gt 0) { $times += $time }
+                if ($success_flag -eq "true") { $success++ } else { $failed++ }
+            }
+        }
+        
+        if ($times.Count -gt 0) {
+            $avg = [int]($times | Measure-Object -Average).Average
+            $min = [int]($times | Measure-Object -Minimum).Minimum
+            $max = [int]($times | Measure-Object -Maximum).Maximum
+            $total = $times.Count
+            
+            Write-Host "Total requests: $total"
+            Write-Host "Successful: $success"
+            Write-Host "Failed: $failed"
+            Write-Host "Avg Response: ${avg}ms"
+            Write-Host "Min Response: ${min}ms"
+            Write-Host "Max Response: ${max}ms"
+        }
+    }
+}
+
+Write-Host "`n💡 Wskazówka: Aby analizować wyniki w GUI:"
+Write-Host "   jmeter -l $OutputFile`n"

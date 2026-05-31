@@ -2,19 +2,27 @@
 
 ## 📋 Przegląd
 
-System zarządzania bazą danych dla uniwersytetu zawierający:
-- **10 uczelni** z realistycznymi nazwami
-- **10 wydziałów** na uczelni
-- **10 budynków** na wydział
-- **50 sal** na budynek
-- **3 kierunki studiów** na wydział
-- **8 przedmiotów** per kierunek
-- **3 roczniki studentów** (1-3 rok)
-- **10 grup zajęciowych** per przedmiot
-- **10 studentów** per grupa
-- **8 instruktorów** na wydział
+System zarządzania bazą danych dla uniwersytetu. Dane startowe generuje `DatabaseInit.java`. **Obecnie w kodzie są mniejsze stałe** (szybszy start, mniej RAM-u, krótka inicjalizacja). Wcześniejsza pełna skala potrafiła kończyć się problemami przy bardzo dużej liczbie rekordów (długi czas lub brak pamięci przy licznych `save()` i trzymanych kolekcjach).
 
-**Razem:** ~50,000 sal, ~800 instruktorów, ~2,400 kursów, ~1,800 etapów studiów, ~30,000 studentów
+### Aktualna skala (domyślna w kodzie)
+
+- **3 uczelnie**
+- **2 wydziały** na uczelnię → **6** wydziałów
+- **2 budynki** na wydział → **12** budynków
+- **10 sal** na budynek → **120** sal
+- **1 kierunek** na wydział → **6** kierunków
+- **3 przedmioty** na kierunek → **18** kursów
+- **2 instruktorów** na wydział → **12** instruktorów
+- **3 lata × 2 semestry** na kierunek → **36** etapów studiów
+- **2 grupy** na przedmiot → **36** grup kursów
+- **10 studentów** na kierunek → **60** studentów
+- Zapisy (`createEnrollments`) — losowe, wg limitu `STUDENTS_PER_GROUP`
+
+### Skala referencyjna (gdy znów podkręcisz stałe jak wcześniej)
+
+Przy klasycznym rozkładzie jak w starszym README (10 uczelni × 10 wydziałów × …) **rzędy wielkości** są m.in.: ok. **50 000** sal, **800** instruktorów, **2 400** kursów, **1 800** etapów studiów, **24 000** grup zajęciowych oraz **kilka–kilkadziesiąt tysięcy** studentów — dokładnie zależy od `STUDENTS_PER_PROGRAM` i pozostałych stałych w `DatabaseInit.java`. Lista z ok. **30 000** studentów mieści się w tej klasie problemu; przy takiej masie rekordów inicjalizacja bywa ciężka bez optymalizacji.
+
+Sensowne kierunki przy dużej skali: batchowe zapisy (`saveAll`/partie), mniejsze trzymanie całego grafu w pamięci oraz ewentualnie większa sterta JVM.
 
 ---
 
@@ -230,6 +238,26 @@ java -cp target/classes pwr.zbd.projekt.benchmark.ApiBenchmark http://localhost:
 
 ---
 
+## 🧭 Diagram bazy danych z kodu (JPA -> ERD)
+
+Projekt zawiera skrypt generujący diagram ER na podstawie encji JPA (`*Entity.java`).
+
+### 1. Wygeneruj diagram
+
+```bash
+python tools/generate_erd.py
+```
+
+Wynik zostanie zapisany do:
+- `docs/db-diagram.mmd` (format Mermaid ER)
+
+### 2. Jak pokazać diagram na zajęciach
+
+- Otwórz `docs/db-diagram.mmd` w edytorze wspierającym Mermaid (np. plugin VS Code/Cursor lub [Mermaid Live Editor](https://mermaid.live/)).
+- Diagram pokazuje tabele, klucze główne i relacje wykryte z adnotacji `@ManyToOne/@OneToMany/@OneToOne/@ManyToMany`.
+
+---
+
 ## 📊 PostgreSQL pg_stat_statements
 
 ### Włączenie pg_stats
@@ -385,4 +413,4 @@ zdb-proj/
 
 ---
 
-**Ostatnia aktualizacja:** 2025-05-02
+**Ostatnia aktualizacja:** 2026-05-06

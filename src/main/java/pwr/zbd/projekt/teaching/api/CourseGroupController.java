@@ -14,6 +14,13 @@ import pwr.zbd.projekt.users.repository.StudentRepo;
 import java.util.List;
 import java.util.UUID;
 
+/**
+ * Warstwa REST — jedyny kontroler HTTP w projekcie (grupy zajęciowe + zapisy).
+ * <p>
+ * Mapowanie URL: {@code /api/course-groups}. Spring deserializuje JSON (POST) do {@link EnrollmentRequest},
+ * encje JPA zwracane w GET są serializowane do JSON (Jackson); cykle w grafie obiektów są ucinane
+ * adnotacjami {@code @JsonIgnore} na wybranych polach encji.
+ */
 @RestController
 @RequestMapping("/api/course-groups")
 @RequiredArgsConstructor
@@ -24,7 +31,7 @@ public class CourseGroupController {
     private final StudentRepo studentRepo;
 
     /**
-     * GET /api/course-groups - Pobierz wszystkie grupy zajęciowe
+     * GET /api/course-groups — lista wszystkich grup (JOIN-y wg potrzeb Hibernate; odpowiedź może być duża).
      */
     @GetMapping
     public ResponseEntity<List<CourseGroupEntity>> getAllCourseGroups() {
@@ -33,7 +40,7 @@ public class CourseGroupController {
     }
 
     /**
-     * GET /api/course-groups/{groupId} - Pobierz grupę zajęciową po ID
+     * GET /api/course-groups/{groupId} — jedna grupa po UUID; 404 gdy brak rekordu.
      */
     @GetMapping("/{groupId}")
     public ResponseEntity<CourseGroupEntity> getCourseGroupById(@PathVariable UUID groupId) {
@@ -43,21 +50,22 @@ public class CourseGroupController {
     }
 
     /**
-     * GET /api/course-groups/{groupId}/students - Pobierz liczbę studentów w grupie
+     * GET /api/course-groups/{groupId}/students — liczba zapisów w tabeli {@code enrollments}
+     * dla danej grupy (zapytanie COUNT po stronie bazy, bez ładowania lazy kolekcji).
      */
     @GetMapping("/{groupId}/students")
     public ResponseEntity<Long> getStudentCountInGroup(@PathVariable UUID groupId) {
-        return courseGroupRepo.findById(groupId)
-                .map(group -> {
-                    long count = group.getEnrollments() != null ? group.getEnrollments().size() : 0;
-                    return ResponseEntity.ok(count);
-                })
-                .orElse(ResponseEntity.notFound().build());
+        if (!courseGroupRepo.existsById(groupId)) {
+            return ResponseEntity.notFound().build();
+        }
+        return ResponseEntity.ok(enrollmentRepo.countByCourseGroup_Id(groupId));
     }
 
     /**
-     * POST /api/course-groups/{groupId}/enroll - Zapisz studenta na zajęcia
-     * Request body: { "studentId": "550e8400-e29b-41d4-a716-446655440000" }
+     * POST /api/course-groups/{groupId}/enroll — tworzy wiersz w {@code enrollments}.
+     * Klucz główny zapisu to para (studentId, courseGroupId) — {@link EnrollmentId}.
+     * Body JSON: {@code {"studentId":"<UUID>"}} — ten sam UUID co {@code students.user_id}.
+     * Kody: 201 sukces, 409 duplikat zapisu, 400 błąd walidacji / brak grupy lub studenta.
      */
     @PostMapping("/{groupId}/enroll")
     public ResponseEntity<EnrollmentResponse> enrollStudent(
@@ -97,7 +105,7 @@ public class CourseGroupController {
     }
 
     /**
-     * DELETE /api/course-groups/{groupId}/unenroll/{studentId} - Usuń studenta z zajęć
+     * DELETE /api/course-groups/{groupId}/unenroll/{studentId} — usuwa rekord zapisu po złożonym kluczu.
      */
     @DeleteMapping("/{groupId}/unenroll/{studentId}")
     public ResponseEntity<EnrollmentResponse> unenrollStudent(
@@ -116,7 +124,7 @@ public class CourseGroupController {
         }
     }
 
-    // DTO Classes
+    /** Ciało żądania POST /enroll — pole musi nazywać się {@code studentId} (Jackson). */
     public static class EnrollmentRequest {
         public UUID studentId;
 
@@ -129,6 +137,7 @@ public class CourseGroupController {
         }
     }
 
+    /** Odpowiedź JSON dla enroll/unenroll — {@code success} + komunikat dla frontu / curl. */
     public static class EnrollmentResponse {
         public boolean success;
         public String message;

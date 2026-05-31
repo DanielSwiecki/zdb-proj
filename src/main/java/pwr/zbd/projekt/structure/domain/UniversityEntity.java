@@ -1,5 +1,6 @@
 package pwr.zbd.projekt.structure.domain;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 import lombok.*;
 
@@ -20,5 +21,6 @@ public class UniversityEntity {
     @Column(unique = true, nullable = false)
     private String name;
     @OneToMany(mappedBy = "university")
+    @JsonIgnore
     private List<FacultyEntity> facultyList;
 }
