@@ -4,7 +4,7 @@
 
 System zarządzania bazą danych dla uniwersytetu. Dane startowe generuje `DatabaseInit.java`. **Obecnie w kodzie są mniejsze stałe** (szybszy start, mniej RAM-u, krótka inicjalizacja). Wcześniejsza pełna skala potrafiła kończyć się problemami przy bardzo dużej liczbie rekordów (długi czas lub brak pamięci przy licznych `save()` i trzymanych kolekcjach).
 
-### Aktualna skala (domyślna w kodzie)
+### Aktualna skala (domyślna w kodzie, konfigurowalna przez properties)
 
 - **3 uczelnie**
 - **2 wydziały** na uczelnię → **6** wydziałów
@@ -16,7 +16,7 @@ System zarządzania bazą danych dla uniwersytetu. Dane startowe generuje `Datab
 - **3 lata × 2 semestry** na kierunek → **36** etapów studiów
 - **2 grupy** na przedmiot → **36** grup kursów
 - **10 studentów** na kierunek → **60** studentów
-- Zapisy (`createEnrollments`) — losowe, wg limitu `STUDENTS_PER_GROUP`
+- Zapisy (`createEnrollments`) — losowe, wg limitu `STUDENTS_PER_GROUP` (5 studentów na grupę)
 
 ### Skala referencyjna (gdy znów podkręcisz stałe jak wcześniej)
 
@@ -28,12 +28,26 @@ Sensowne kierunki przy dużej skali: batchowe zapisy (`saveAll`/partie), mniejsz
 
 ## 🚀 Uruchomienie
 
+### Wymagania wstępne
+
+- [Java JDK 21](https://adoptium.net/) (lub nowsza LTS)
+- [Docker](https://www.docker.com/get-started) i [Docker Compose]
+- [Maven](https://maven.apache.org/install.html) (opcjonalnie, projekt zawiera wrapper mvnw)
+
 ### 1. Przygotowanie środowiska
 
-```bash
-# Ustaw JAVA_HOME na JDK 21
-$env:JAVA_HOME = "C:\Program Files\Android\Android Studio\jbr"
+Ustaw zmienne środowiskowe dla Java 21 (dostosuj ścieżkę do swojej instalacji):
+
+**PowerShell:**
+```powershell
+$env:JAVA_HOME = "C:\Program Files\Java\jdk-21"
 $env:Path = "$env:JAVA_HOME\bin;$env:Path"
+```
+
+**Command Prompt (cmd.exe):**
+```cmd
+set JAVA_HOME=C:\Program Files\Java\jdk-21
+set PATH=%JAVA_HOME%\bin;%PATH%
 ```
 
 ### 2. Uruchom PostgreSQL w Docker
@@ -42,24 +56,41 @@ $env:Path = "$env:JAVA_HOME\bin;$env:Path"
 docker-compose up -d
 ```
 
-Sprawdź status:
+Sprawdź czy kontener bazy danych działa:
 ```bash
 docker ps | grep zbd_postgres
+```
+
+Powinieneś zobaczyć coś podobnego do:
+```
+CONTAINER ID   IMAGE                 COMMAND                  CREATED         STATUS         PORTS                    NAMES
+a1b2c3d4e5f6   postgres:17           "docker-entrypoint.s…"   2 minutes ago   Up 2 minutes   0.0.0.0:12345->5432/tcp  zbd_postgres
 ```
 
 ### 3. Uruchom aplikację Spring Boot
 
 ```bash
-# Z terminala w folderze projektu
+# Z terminala w folderze projektu (używa Maven wrapper)
 .\mvnw.cmd spring-boot:run
 ```
 
-Lub z parametrem port:
+Lub określając własny port:
 ```bash
-.\mvnw.cmd spring-boot:run -Dspring-boot.run.arguments="--server.port=8081"
+.\mvnw.cmd spring-boot:run -Dspring-boot.run.arguments="--server.port=8082"
 ```
 
-Aplikacja będzie dostępna na: **http://localhost:8081**
+Aplikacja będzie dostępna na: **http://localhost:8081** (lub port, który podałeś)
+
+### 4. Sprawdź czy aplikacja działa
+
+Po kilku sekundach powinieneś zobaczyć w logach coś podobnego do:
+```
+... Started ZbdbProjektApplication in 4.567 seconds (process running for 5.012)
+```
+
+A następnie możesz przetestować endpointy:
+- http://localhost:8081/api/course-groups (lista grup)
+- http://localhost:8081/api/students (lista studentów)
 
 ---
 
@@ -376,8 +407,8 @@ docker logs zbd_postgres
 ### Błąd "No compiler is provided"
 
 ```bash
-# Ustaw JAVA_HOME
-$env:JAVA_HOME = "C:\Program Files\Android\Android Studio\jbr"
+# Ustaw JAVA_HOME na ścieżkę do JDK 21
+$env:JAVA_HOME = "C:\Program Files\Java\jdk-21"
 ```
 
 ---
@@ -403,6 +434,50 @@ zdb-proj/
 
 ---
 
+## 📊 Test wydajnościowy (Load Testing)
+
+Projekt zawiera skrypt PowerShell do testowania obciążeniowego symulującego masowy zapis studentów na zajęcia.
+
+### Narzędzie testujące: LoadTest.ps1
+
+Skrypt znajduje się w folderze `tools/` i symuluje scenariusz "DZIEŃ ZAPISÓW":
+- Uczelnia ma ~100 grup zajęciowych
+- Każdy student zapisuje się na 20 z 30 wymaganych przedmiotów
+- Test różne poziomy równoczesności (od 1 do 5000 użytkowników co 10)
+
+#### Wymagania:
+- Uruchomiona aplikacja Spring Boot na porcie 8081
+- PowerShell 5.1+ (w standardzie w Windows)
+
+#### Jak użyć:
+1. Uruchom aplikację: `.\mvnw.cmd spring-boot:run`
+2. Uruchom test: `.\tools\LoadTest.ps1`
+3. Analizuj wyniki w pliku `load_test_results.csv`
+
+#### Wyniki testu:
+Plik CSV zawiera kolumny:
+- ConcurrentUsers - liczba równoczesnych użytkowników
+- AvgResponseTimeMs - średni czas odpowiedzi w ms
+- MinResponseTimeMs - minimalny czas odpowiedzi
+- MaxResponseTimeMs - maksymalny czas odpowiedzi
+- SuccessRate - procent udanych requestów
+- TotalRequests - łączna liczba requestów
+- FailedRequests - liczba nieudanych requestów
+
+#### Interpretacja wyników:
+- **Czas rośnie liniowo** -> wystarczy skalowanie pionowe (więcej RAM/CPU)
+- **Czas rośnie podliniowo** -> system dobrze buforuje, jest wydajny
+- **Czas rośnie nadliniowo** -> wąskie gardło: blokady, pule połączeń, I/O
+- **SuccessRate spada < 100%** -> baza przeciążona, timeouty lub deadlocki
+
+## 🔧 Konfiguracja testu
+
+W skrypcie `tools\LoadTest.ps1` można dostosować:
+- `$baseUrl` - adres aplikacji (domyślnie http://localhost:8081)
+- `$concurrencyLevels` - poziomy równoczesności testu
+- `$maxParallelJobs` - maksymalna liczba równoległych jobów PowerShell
+- `$requestsPerUser` - liczba żądań na użytkownika (domyślnie 20)
+
 ## 📚 Dodatkowe informacje
 
 - **Spring Boot:** 4.0.4
@@ -413,4 +488,4 @@ zdb-proj/
 
 ---
 
-**Ostatnia aktualizacja:** 2026-05-06
+**Ostatnia aktualizacja:** 2026-06-02
