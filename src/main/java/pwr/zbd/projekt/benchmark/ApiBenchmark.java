@@ -12,12 +12,13 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 
 /**
- * API Benchmark Tool - Testing CourseGroupController endpoints
- * Run with: java pwr.zbd.projekt.benchmark.ApiBenchmark <baseUrl> <operation> <threads> <requests>
- * Examples:
- *   - GET all groups:  java ApiBenchmark http://localhost:8081 GET_ALL 10 1000
- *   - ENROLL student:  java ApiBenchmark http://localhost:8081 ENROLL 10 1000
- *   - UNENROLL:        java ApiBenchmark http://localhost:8081 UNENROLL 10 1000
+ * Prosty benchmark HTTP (pojedynczy poziom obciazenia).
+ * <p>
+ * Do pelnego testu granicy systemu (wykres P95 i skutecznosc vs uzytkownicy)
+ * uzyj: {@code .\tools\run_benchmark.ps1} z profilem Spring {@code benchmark}.
+ * <p>
+ * Run: java pwr.zbd.projekt.benchmark.ApiBenchmark &lt;baseUrl&gt; &lt;operation&gt; &lt;threads&gt; &lt;requests&gt;
+ * Operations: HEALTH, ENROLL (unikaj GET_ALL przy 10k grup!)
  */
 public class ApiBenchmark {
 
@@ -35,7 +36,7 @@ public class ApiBenchmark {
     public static void main(String[] args) {
         if (args.length < 4) {
             System.out.println("Usage: java ApiBenchmark <baseUrl> <operation> <threads> <requests>");
-            System.out.println("Operations: GET_ALL, GET_BY_ID, ENROLL, UNENROLL, MIXED");
+            System.out.println("Operations: HEALTH, ENROLL, UNENROLL, GET_BY_ID, GET_ALL (GET_ALL nie dla duzej bazy!)");
             System.out.println("Example: java ApiBenchmark http://localhost:8081 GET_ALL 10 1000");
             System.exit(1);
         }
@@ -103,6 +104,9 @@ public class ApiBenchmark {
 
         try {
             switch (operation) {
+                case "HEALTH":
+                    health();
+                    break;
                 case "GET_ALL":
                     getAll();
                     break;
@@ -140,6 +144,19 @@ public class ApiBenchmark {
             }
             throw e;
         }
+    }
+
+    private void health() throws Exception {
+        URL url = new URL(baseUrl + "/api/health");
+        HttpURLConnection conn = (HttpURLConnection) url.openConnection();
+        conn.setRequestMethod("GET");
+        conn.setConnectTimeout(5000);
+        conn.setReadTimeout(5000);
+        int responseCode = conn.getResponseCode();
+        if (responseCode < 200 || responseCode >= 300) {
+            throw new Exception("HTTP " + responseCode);
+        }
+        conn.disconnect();
     }
 
     private void getAll() throws Exception {

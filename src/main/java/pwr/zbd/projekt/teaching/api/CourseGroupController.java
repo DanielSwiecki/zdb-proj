@@ -1,15 +1,15 @@
 package pwr.zbd.projekt.teaching.api;
 
 import lombok.RequiredArgsConstructor;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
 import pwr.zbd.projekt.teaching.domain.CourseGroupEntity;
-import pwr.zbd.projekt.teaching.domain.EnrollmentEntity;
 import pwr.zbd.projekt.teaching.domain.EnrollmentId;
 import pwr.zbd.projekt.teaching.repository.CourseGroupRepo;
 import pwr.zbd.projekt.teaching.repository.EnrollmentRepo;
-import pwr.zbd.projekt.users.repository.StudentRepo;
 
 import java.util.List;
 import java.util.UUID;
@@ -28,10 +28,18 @@ public class CourseGroupController {
 
     private final CourseGroupRepo courseGroupRepo;
     private final EnrollmentRepo enrollmentRepo;
-    private final StudentRepo studentRepo;
+
+    /**
+     * GET /api/course-groups/count — lekki COUNT w bazie (bez ladowania 10k grup do JSON).
+     */
+    @GetMapping("/count")
+    public ResponseEntity<Long> countCourseGroups() {
+        return ResponseEntity.ok(courseGroupRepo.count());
+    }
 
     /**
      * GET /api/course-groups — lista wszystkich grup (JOIN-y wg potrzeb Hibernate; odpowiedź może być duża).
+     * Przy dużej skali używaj {@link #countCourseGroups()} zamiast tego endpointu.
      */
     @GetMapping
     public ResponseEntity<List<CourseGroupEntity>> getAllCourseGroups() {
@@ -68,39 +76,35 @@ public class CourseGroupController {
      * Kody: 201 sukces, 409 duplikat zapisu, 400 błąd walidacji / brak grupy lub studenta.
      */
     @PostMapping("/{groupId}/enroll")
+    @Transactional
     public ResponseEntity<EnrollmentResponse> enrollStudent(
             @PathVariable UUID groupId,
             @RequestBody EnrollmentRequest request) {
+        if (request.getStudentId() == null) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                    .body(new EnrollmentResponse(false, "Brak studentId"));
+        }
+
         try {
-            // Sprawdzenie czy grupa istnieje
-            CourseGroupEntity group = courseGroupRepo.findById(groupId)
-                    .orElseThrow(() -> new RuntimeException("Grupa nie znaleziona"));
-
-            // Sprawdzenie czy student istnieje
-            if (!studentRepo.existsById(request.getStudentId())) {
-                throw new RuntimeException("Student nie znaleziony");
-            }
-
-            // Sprawdzenie czy student już jest zapisany
-            EnrollmentId enrollmentId = new EnrollmentId(request.getStudentId(), groupId);
-            if (enrollmentRepo.existsById(enrollmentId)) {
+            int inserted = enrollmentRepo.insertIfAbsent(request.getStudentId(), groupId);
+            if (inserted == 0) {
                 return ResponseEntity.status(HttpStatus.CONFLICT)
                         .body(new EnrollmentResponse(false, "Student już jest zapisany na tę grupę"));
             }
-
-            // Zapis na zajęcia
-            EnrollmentEntity enrollment = new EnrollmentEntity();
-            enrollment.setEnrollmentId(enrollmentId);
-            enrollment.setCourseGroup(group);
-            enrollment.setStudent(studentRepo.findById(request.getStudentId()).get());
-            enrollmentRepo.save(enrollment);
-
             return ResponseEntity.status(HttpStatus.CREATED)
                     .body(new EnrollmentResponse(true, "Student zapisany na zajęcia"));
-
-        } catch (Exception e) {
+        } catch (DataIntegrityViolationException e) {
+            String msg = e.getMostSpecificCause() != null ? e.getMostSpecificCause().getMessage() : e.getMessage();
+            if (msg != null && msg.contains("course_group_id")) {
+                return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                        .body(new EnrollmentResponse(false, "Grupa nie znaleziona"));
+            }
+            if (msg != null && msg.contains("student_id")) {
+                return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                        .body(new EnrollmentResponse(false, "Student nie znaleziony"));
+            }
             return ResponseEntity.status(HttpStatus.BAD_REQUEST)
-                    .body(new EnrollmentResponse(false, "Błąd: " + e.getMessage()));
+                    .body(new EnrollmentResponse(false, "Błąd integralności danych"));
         }
     }
 
@@ -108,6 +112,7 @@ public class CourseGroupController {
      * DELETE /api/course-groups/{groupId}/unenroll/{studentId} — usuwa rekord zapisu po złożonym kluczu.
      */
     @DeleteMapping("/{groupId}/unenroll/{studentId}")
+    @Transactional
     public ResponseEntity<EnrollmentResponse> unenrollStudent(
             @PathVariable UUID groupId,
             @PathVariable UUID studentId) {

@@ -1,0 +1,20 @@
+# Profil pod test obciazeniowy (uruchom z tym profilem!)
+# PowerShell: .\mvnw.cmd spring-boot:run "-Dspring-boot.run.profiles=benchmark"
+spring:
+  jpa:
+    show-sql: false
+  datasource:
+    hikari:
+      maximum-pool-size: 50
+      minimum-idle: 10
+      connection-timeout: 10000
+      idle-timeout: 300000
+      max-lifetime: 1800000
+
+server:
+  tomcat:
+    threads:
+      max: 200
+      min-spare: 20
+    accept-count: 100
+    max-connections: 10000

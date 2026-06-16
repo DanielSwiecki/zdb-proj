@@ -1,5 +1,4 @@
-# Eksport unikalnych par (student, grupa) które NIE są jeszcze w enrollments.
-# Dzięki temu test mierzy czas zapisu, a nie szum 409 Conflict.
+# Eksport unikalnych par (student, grupa) ktore NIE sa jeszcze w enrollments.
 param(
     [string]$ContainerName = "zbd_postgres",
     [string]$OutputFile = "",
@@ -20,45 +19,67 @@ if (-not $check) {
     throw "Kontener '$ContainerName' nie dziala. Uruchom: docker compose up -d"
 }
 
-$containerPath = "/tmp/zdb_benchmark_pairs.csv"
-$sql = @"
-\copy (
-  SELECT s.user_id::text AS studentId, picked.group_id::text AS groupId
-  FROM students s
-  CROSS JOIN generate_series(1, $SlotsPerStudent) AS slot(n)
-  CROSS JOIN LATERAL (
-    SELECT cg.id AS group_id
-    FROM course_groups cg
+if (Test-Path $OutputFile) {
+    Remove-Item $OutputFile -Force
+}
+
+# COPY TO STDOUT przez plik SQL w kontenerze (bez \copy - dziala na Windows)
+$sqlFile = "/tmp/zdb_export_pairs.sql"
+$query = @"
+COPY (
+    SELECT "studentId", "groupId"
+  FROM (
+    SELECT
+      s.user_id::text AS "studentId",
+      cg.id::text AS "groupId",
+      row_number() OVER (
+        PARTITION BY s.user_id
+        ORDER BY md5(s.user_id::text || cg.id::text)
+      ) AS rn
+    FROM students s
+    CROSS JOIN course_groups cg
     WHERE NOT EXISTS (
       SELECT 1 FROM enrollments e
       WHERE e.student_id = s.user_id AND e.course_group_id = cg.id
     )
-    ORDER BY md5(s.user_id::text || slot.n::text)
-    LIMIT 1
   ) picked
-  WHERE picked.group_id IS NOT NULL
+  WHERE rn <= $SlotsPerStudent
   LIMIT $MaxPairs
-) TO '$containerPath' WITH (FORMAT CSV, HEADER true);
+) TO STDOUT WITH (FORMAT CSV, HEADER true);
 "@
 
-$tempSql = Join-Path $env:TEMP "zdb_benchmark_pairs.sql"
-$sql | Out-File -FilePath $tempSql -Encoding ASCII
+$tempSql = Join-Path $env:TEMP "zdb_export_pairs.sql"
+[System.IO.File]::WriteAllText($tempSql, $query.Replace("`r`n", "`n"))
 
 try {
-    Get-Content $tempSql -Raw | docker exec -i $ContainerName psql -U admin -d zdb -q
-    docker cp "${ContainerName}:${containerPath}" $OutputFile | Out-Null
-    docker exec $ContainerName rm -f $containerPath | Out-Null
+    docker cp $tempSql "${ContainerName}:${sqlFile}" | Out-Null
+    if ($LASTEXITCODE -ne 0) { throw "docker cp SQL failed" }
+
+    $raw = docker exec $ContainerName psql -U admin -d zdb -q -t -f $sqlFile 2>&1
+    if ($LASTEXITCODE -ne 0) {
+        throw "psql export failed: $raw"
+    }
+
+    # psql -t usuwa naglowek COPY - dodaj recznie jesli brak
+    $csv = ($raw | Out-String).Trim()
+    if ($csv.Length -eq 0) {
+        throw "Eksport zwrocil pusty wynik. Czy baza ma studentow i grupy?"
+    }
+
+    if ($csv -notmatch "^studentId,") {
+        "studentId,groupId`n$csv" | Set-Content -Path $OutputFile -Encoding UTF8
+    } else {
+        $csv | Set-Content -Path $OutputFile -Encoding UTF8
+    }
+
+    docker exec $ContainerName rm -f $sqlFile | Out-Null
 } finally {
     Remove-Item $tempSql -ErrorAction SilentlyContinue
 }
 
-if (-not (Test-Path $OutputFile)) {
-    throw "Nie utworzono pliku $OutputFile"
-}
-
 $lines = (Get-Content $OutputFile | Measure-Object -Line).Lines - 1
 if ($lines -le 0) {
-    throw "Brak par w $OutputFile. Sprawdz czy baza ma studentow i grupy."
+    throw "Brak par w $OutputFile. Uruchom seed: .\tools\run_seed_batch.ps1"
 }
 
 Write-Host "Zapisano $lines par -> $OutputFile" -ForegroundColor Green

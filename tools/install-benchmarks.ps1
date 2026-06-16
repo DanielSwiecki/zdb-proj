@@ -89,7 +89,5 @@ if ($CurrentPath -notlike "*$JMeterBin*") {
 }
 
 Write-Host "`nInstalacja zakonczona!`n"
-Write-Host "Nastepny krok: uruchom benchmarki ze skryptow w tools/ np.:"
-Write-Host "  - benchmark-jmeter.ps1"
-Write-Host "  - benchmark-ab.ps1"
-Write-Host "  - benchmark-curl.ps1"
+Write-Host "Nastepny krok: uruchom test JMeter:"
+Write-Host "  .\tools\run_jmeter_wyklad.ps1 -LikeColleague"
