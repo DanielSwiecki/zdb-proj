@@ -1,4 +1,4 @@
-# ============================================================================
+﻿# ============================================================================
 # Benchmark za pomocą JMeter
 # ============================================================================
 # Wymagania: JMeter - zainstaluj poprzez install-benchmarks.ps1
@@ -12,7 +12,7 @@ $Iterations = 100
 $OutputFile = Join-Path $BaseDir "..\results\jmeter-results-$(Get-Date -Format 'yyyyMMdd-HHmmss').jtl"
 
 Write-Host "🔥 Benchmark API za pomocą JMeter"
-Write-Host "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+Write-Host "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 Write-Host "URL: $BaseUrl"
 Write-Host "Wątki: $Threads"
 Write-Host "Ramp-up: $RampUp s"
@@ -80,14 +80,14 @@ Write-Host "📄 Wyniki zapisane: $OutputFile`n"
 if (Test-Path $OutputFile) {
     Write-Host "📊 Krótkie statystyki:"
     Write-Host "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-    
+
     # Czytanie JTL (CSV) - bardzo prosty parser
     $lines = Get-Content $OutputFile | Select-Object -Skip 1
     if ($lines.Count -gt 0) {
         $times = @()
         $success = 0
         $failed = 0
-        
+
         foreach ($line in $lines) {
             $cols = $line -split ","
             if ($cols.Count -gt 3) {
@@ -97,13 +97,13 @@ if (Test-Path $OutputFile) {
                 if ($success_flag -eq "true") { $success++ } else { $failed++ }
             }
         }
-        
+
         if ($times.Count -gt 0) {
             $avg = [int]($times | Measure-Object -Average).Average
             $min = [int]($times | Measure-Object -Minimum).Minimum
             $max = [int]($times | Measure-Object -Maximum).Maximum
             $total = $times.Count
-            
+
             Write-Host "Total requests: $total"
             Write-Host "Successful: $success"
             Write-Host "Failed: $failed"

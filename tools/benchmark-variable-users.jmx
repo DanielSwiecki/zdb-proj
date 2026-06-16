@@ -1,0 +1,137 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<jmeterTestPlan version="1.2" properties="5.0" jmeter="5.6.3">
+  <hashTree>
+    <TestPlan guiclass="TestPlanGui" testclass="TestPlan" testname="Variable Users Load Test - Enrollment API">
+      <elementProp name="TestPlan.user_defined_variables" elementType="Arguments" guiclass="ArgumentsPanel" testclass="Arguments" testname="User Defined Variables">
+        <collectionProp name="Arguments.arguments"/>
+      </elementProp>
+      <stringProp name="TestPlan.user_define_classpath"></stringProp>
+      <boolProp name="TestPlan.serialize_threadgroups">false</boolProp>
+      <boolProp name="TestPlan.functional_mode">false</boolProp>
+      <boolProp name="TestPlan.tearDown_on_shutdown">true</boolProp>
+    </TestPlan>
+    <hashTree>
+      <!-- Ultimate Thread Group from plugins -->
+      <kg.apc.jmeter.threads.UltimateThreadGroup guiclass="kg.apc.jmeter.threads.UltimateThreadGroupGui" testclass="kg.apc.jmeter.threads.UltimateThreadGroup" testname="Variable Load Threads" enabled="true">
+        <!-- Define load profile: start at 1 thread, add 1 thread every 10 sec up to 20, hold 60 sec, then ramp down-->
+        <collectionProp name="UltimateThreadGroup.threadsList">
+          <!-- Initial delay, initial threads -->
+          <elementProp name="" elementType="kg.apc.jmeter.threads.UltimateThreadGroup$ThreadGroupSlice">
+            <intProp name="startThreadCount">1</intProp>
+            <intProp name="initialDelay">0</intProp>
+            <intProp name="startDelay">0</intProp>
+          </elementProp>
+          <!-- Add 1 thread every 10 seconds until reaching 20 -->
+          <elementProp name="" elementType="kg.apc.jmeter.threads.UltimateThreadGroup$ThreadGroupSlice">
+            <intProp name="startThreadCount">20</intProp>
+            <intProp name="initialDelay">0</intProp>
+            <intProp name="startDelay">190</intProp>
+          </elementProp>
+          <!-- Hold 20 threads for 60 seconds -->
+          <elementProp name="" elementType="kg.apc.jmeter.threads.UltimateThreadGroup$ThreadGroupSlice">
+            <intProp name="startThreadCount">20</intProp>
+            <intProp name="initialDelay">0</intProp>
+            <intProp name="startDelay">250</intProp>
+          </elementProp>
+          <!-- Ramp down to 0 over 20 seconds -->
+          <elementProp name="" elementType="kg.apc.jmeter.threads.UltimateThreadGroup$ThreadGroupSlice">
+            <intProp name="startThreadCount">0</intProp>
+            <intProp name="initialDelay">0</intProp>
+            <intProp name="startDelay">310</intProp>
+          </elementProp>
+        </collectionProp>
+        <boolProp name="UltimateThreadGroup.same_user_on_next_iteration">true</boolProp>
+        <stringProp name="ThreadGroup.on_sample_error">continue</stringProp>
+        <elementProp name="ThreadGroup.main_controller" elementType="LoopController" guiclass="LoopControlPanel" testclass="LoopController" testname="Loop Controller">
+          <stringProp name="LoopController.loops">10</stringProp>
+          <boolProp name="LoopController.continue_forever">false</boolProp>
+        </elementProp>
+      </kg.apc.jmeter.threads.UltimateThreadGroup>
+      <hashTree>
+        <!-- HTTP Request Defaults -->
+        <ConfigTestElement guiclass="HttpDefaultsGui" testclass="ConfigTestElement" testname="HTTP Request Defaults" enabled="true">
+          <elementProp name="Arguments" elementType="Arguments" guiclass="ArgumentsPanel" testclass="Arguments" testname="User-Defined Variables" enabled="true">
+            <collectionProp name="Arguments.arguments"/>
+          </elementProp>
+          <stringProp name="HTTPSampler.domain">localhost</stringProp>
+          <stringProp name="HTTPSampler.port">8081</stringProp>
+          <stringProp name="HTTPSampler.protocol">http</stringProp>
+          <stringProp name="HTTPSampler.path"></stringProp>
+          <stringProp name="HTTPSampler.concurrentPool">4</stringProp>
+          <boolProp name="HTTPSampler.image_parser">false</boolProp>
+          <boolProp name="HTTPSampler.concurrentDwn">false</boolProp>
+          <boolProp name="HTTPSampler.concurrentPool">4</boolProp>
+          <stringProp name="HTTPSampler.concurrentPool">4</stringProp>
+        </ConfigTestElement>
+        <hashTree/>
+        <!-- HTTP Request for enrollment -->
+        <HTTPSamplerProxy guiclass="HttpTestSampleGui" testclass="HTTPSamplerProxy" testname="POST /api/enroll" enabled="true">
+          <intProp name="HTTPSampler.connect_timeout">20000</intProp>
+          <intProp name="HTTPSampler.response_timeout">20000</intProp>
+          <stringProp name="HTTPSampler.domain">localhost</stringProp>
+          <stringProp name="HTTPSampler.port">8081</stringProp>
+          <stringProp name="HTTPSampler.protocol">http</stringProp>
+          <stringProp name="HTTPSampler.path">/api/enroll</stringProp>
+          <boolProp name="HTTPSampler.follow_redirects">true</boolProp>
+          <stringProp name="HTTPSampler.method">POST</stringProp>
+          <boolProp name="HTTPSampler.use_keepalive">true</boolProp>
+          <boolProp name="HTTPSampler.postBodyRaw">false</boolProp>
+          <elementProp name="HTTPsampler.Arguments" elementType="Arguments" guiclass="HTTPArgumentsPanel" testclass="Arguments" testname="User Defined Variables">
+            <collectionProp name="Arguments.arguments"/>
+          </elementProp>
+        </HTTPSamplerProxy>
+        <hashTree/>
+        <!-- Result Collector -->
+        <ResultCollector guiclass="StatVisualizer" testclass="ResultCollector" testname="Aggregate Report" enabled="true">
+          <boolProp name="ResultCollector.error_logging">false</boolProp>
+          <objProp>
+            <name>saveConfig</name>
+            <value class="SampleSaveConfiguration">
+              <time>true</time>
+              <latency>true</latency>
+              <timestamp>true</timestamp>
+              <success>true</success>
+              <label>true</label>
+              <code>true</code>
+              <message>true</message>
+              <threadName>true</threadName>
+              <dataType>true</dataType>
+              <encoding>false</encoding>
+              <assertions>true</assertions>
+              <subresults>true</subresults>
+              <responseData>false</responseData>
+              <samplerData>false</samplerData>
+              <xml>false</xml>
+              <fieldNames>true</fieldNames>
+              <responseHeaders>false</responseHeaders>
+              <requestHeaders>false</requestHeaders>
+              <responseDataOnError>false</responseDataOnError>
+              <saveAssertionResultsFailureMessage>true</saveAssertionResultsFailureMessage>
+              <assertionsResultsToSave>0</assertionsResultsToSave>
+              <bytes>true</bytes>
+              <sentBytes>true</sentBytes>
+              <url>true</url>
+              <threadCounts>true</threadCounts>
+              <idleTime>true</idleTime>
+              <connectTime>true</connectTime>
+            </value>
+          </objProp>
+          <elementProp name="collectionProp_name" elementType="ResultCollector">
+            <boolProp name="ResultCollector.error_logging">false</boolProp>
+            <objProp>
+              <name>samplers</name>
+              <value class="java.util.ArrayList"/>
+            </objProp>
+            <stringProp name="filename"></stringProp>
+          </elementProp>
+          <objProp>
+            <name>samplers</name>
+            <value class="java.util.ArrayList"/>
+          </objProp>
+          <stringProp name="filename"></stringProp>
+        </ResultCollector>
+        <hashTree/>
+      </hashTree>
+    </hashTree>
+  </hashTree>
+</jmeterTestPlan>

@@ -1,6 +1,67 @@
 # 🚀 Benchmarkowanie API - Instrukcja
 
-Projekt zawiera kompleksową konfigurację do benchmarkowania API za pomocą trzech narzędzi:
+## ⭐ Rekomendowany test: wykres opóźnienie vs użytkownicy (2 GB RAM Postgres)
+
+Cel: znaleźć **punkt nasycenia** bazy przy limicie **2 GB RAM** w Dockerze — zgodnie z tematem skalowania pionowego z wykładu.
+
+### Szybki start
+
+```powershell
+# Terminal 1: baza + aplikacja
+docker compose up -d
+.\mvnw.cmd spring-boot:run
+
+# Terminal 2: benchmark (generuje benchmark_latency.csv)
+.\tools\run_benchmark.ps1
+```
+
+### Wykres (Excel / LibreOffice)
+
+Plik: `tools/benchmark_latency.csv`
+
+| Oś | Kolumna | Opis |
+|----|---------|------|
+| **X** | `ConcurrentUsers` | liczba równoczesnych użytkowników |
+| **Y** | `P95LatencyMs` | opóźnienie (95. percentyl udanych zapisów) |
+
+Dodatkowo na wykresie pomocniczym: `TimeoutRatePct` — gdy rośnie, system odrzuca/oczekuje na połączenia (przeciążenie).
+
+### Dlaczego poprzedni `LoadTest.ps1` dawał „wachania”?
+
+| Problem | Skutek |
+|---------|--------|
+| `maxLocalParallelism=50` przy etykiecie 1000+ użytkowników | Oś X **nie odzwierciedlała** realnej równoległości |
+| Powtarzające się pary student–grupa | Szum **409 Conflict** |
+| Timeout 60 s wliczany do średniej | Skoki **Max/Avg** przy przeciążeniu |
+| Stepping Thread Group (JMeter) bez agregacji per poziom | Trudny wykres X/Y |
+
+Nowy pipeline: `prepare_benchmark_pairs.ps1` → `BenchmarkLoad.ps1` → `benchmark_latency.csv`
+
+### Parametry benchmarku
+
+```powershell
+.\tools\run_benchmark.ps1 -StartUsers 10 -StepUsers 25 -MaxUsers 400 -MonitorDocker
+```
+
+Zatrzymanie automatyczne gdy:
+- `TimeoutRatePct` ≥ 15% (użytkownicy nie mogą się połączyć w czasie)
+- `SuccessRatePct` < 85%
+- `P95LatencyMs` ≥ 25000 ms
+
+Ostatni wiersz z `Note=SATURACJA: ...` = szacowana **granica obciążenia**.
+
+### Monitoring RAM podczas testu
+
+```powershell
+docker stats zbd_postgres
+# lub zapis co 2s:
+.\tools\run_benchmark.ps1 -MonitorDocker
+# -> tools/benchmark_docker_stats.csv
+```
+
+---
+
+Projekt zawiera też starsze narzędzia:
 - **curl** — najprostsze, wbudowane w Windows
 - **Apache Bench (ab)** — tradycyjne narzędzie Apache
 - **JMeter** — profesjonalne, zaawansowane

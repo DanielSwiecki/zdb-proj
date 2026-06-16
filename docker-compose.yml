@@ -9,9 +9,17 @@ services:
       POSTGRES_INITDB_ARGS: "-c shared_preload_libraries=pg_stat_statements"
     ports:
       - "12345:5432"
+    # Limit RAM dziala tez bez Docker Swarm (deploy.resources bywa ignorowane lokalnie)
+    mem_limit: 2g
     volumes:
       - postgres_data_zdb:/var/lib/postgresql/data
       - ./init-db.sql:/docker-entrypoint-initdb.d/init-db.sql
+    deploy:
+      resources:
+        limits:
+          memory: 2G
+        reservations:
+          memory: 512M
 
 volumes:
   postgres_data_zdb:

@@ -1,36 +1,46 @@
-﻿# LoadTest_fixed.ps1
-# Poprawiona wersja testu obciążeniowego.
-# Najważniejsza zmiana: usunięto Start-Job, który tworzył kruche sesje/procesy PowerShell
-# i powodował błąd: "Opening the remote session failed ... State Broken".
-# Zamiast tego używany jest RunspacePool, czyli lekkie wątki PowerShell w tym samym procesie.
+﻿# LoadTest.ps1 — PRZESTARZALY (zachowany dla kompatybilnosci)
+#
+# PROBLEM starej wersji:
+# - maxLocalParallelism=50 przy etykiecie 500+ uzytkownikow (os X byla falszywa)
+# - szum 409 Conflict z powtarzajacych sie par student-grupa
+# - timeout 60s zawyżal Max/Avg przy przeciazeniu
+#
+# UZYJ ZAMIAST TEGO:
+#   .\tools\run_benchmark.ps1
+# lub:
+#   .\tools\BenchmarkLoad.ps1
+#
+Write-Host "UWAGA: LoadTest.ps1 jest przestarzaly. Uruchamiam BenchmarkLoad.ps1..." -ForegroundColor Yellow
+& (Join-Path $PSScriptRoot "BenchmarkLoad.ps1") @args
+exit $LASTEXITCODE
 
-Set-StrictMode -Version Latest
-$ErrorActionPreference = "Stop"
+# --- stary kod ponizej (nieuzywany) ---
+if ($false) {
 
 # ===== KONFIGURACJA TESTU =====
 $baseUrl = "http://localhost:8081"
 
-# Zakres testu. To daje poziomy: 10, 20, 30, ...
-# Nie dawaj od razu 5000 na laptopie. Najpierw sprawdź 200-300, potem zwiększaj.
-$startUsers = 850
-$stepUsers  = 10
-$maxConcurrentUsers = 1000
+# Zakres testu - mniejsze skoki dla gładkiego wykresu
+# Zmienione dla uzyskania czystego wykresu bez szumu
+$startUsers = 10
+$stepUsers  = 10        # każdy level co 10 użytkowników
+$maxConcurrentUsers = 5000  # BRAK LIMITU - szedź dopóki system wytrzyma!
 
 # Liczba żądań zapisu wykonywanych przez jednego wirtualnego użytkownika.
-$requestsPerUser = 20
+$requestsPerUser = 10   # zmniejszone z 20
 
 # Timeout pojedynczego żądania HTTP.
-$requestTimeoutSec = 20
+$requestTimeoutSec = 60  # zwiększone z 20 - więcej czasu na odpowiedź
 
-# 409 Conflict często oznacza: "student już zapisany do tej grupy".
-# Przy teście powtarzanym na tej samej bazie 409 nie oznacza awarii bazy, tylko konflikt biznesowy.
+# 409 Conflict to może być błąd biznesowy lub konflik serwera
 # true  = 409 liczymy jako poprawną odpowiedź systemu.
-# false = sukcesem są tylko odpowiedzi 2xx.
-$count409AsSuccess = $true
+# false = sukcesem są tylko odpowiedzi 2xx (czystszy wykres dla testu obciążenia)
+$count409AsSuccess = $false
 
 # Maksymalna liczba prawdziwie równoległych runspace'ów.
-# Dla testu lokalnego 150-300 jest zwykle znacznie stabilniejsze niż tysiące Start-Jobów.
-$maxLocalParallelism = 1000
+# Dla czystszego wykresu użyj niższej wartości - mniej race conditions
+# Zmniejszone z 1000 na 50 dla gładkiego wykresu bez szumu
+$maxLocalParallelism = 50
 
 # Pliki wynikowe.
 $outputFile = Join-Path $PSScriptRoot "load_test_results.csv"
@@ -427,6 +437,12 @@ foreach ($concurrentUsers in $concurrencyLevels) {
 
     Write-Host ("  Avg: {0:N1} ms  |  Min: {1:N0} ms  |  Max: {2:N0} ms  |  Sukces: {3}%  |  Bledy: {4}  |  HTTP: {5}" -f `
         $stats.Avg, $stats.Min, $stats.Max, $stats.SuccessRate, $failed, $statusText)
+    
+    # Czekaj między levelami aby system się ustabilizował i uzyskać gładki wykres
+    if ($concurrentUsers -lt $concurrencyLevels[-1]) {
+        Write-Host "⏸️  Stabilizacja systemu... (3 sekundy)" -ForegroundColor Yellow
+        Start-Sleep -Seconds 3
+    }
 }
 
 Write-Host ""
@@ -442,3 +458,4 @@ Write-Host "    - Os X: ConcurrentUsers"
 Write-Host "    - Os Y: AvgResponseTimeMs"
 Write-Host ""
 Write-Host "Uwaga: jeśli chcesz liczyć jako sukces tylko HTTP 2xx, ustaw: `$count409AsSuccess = `$false"
+}

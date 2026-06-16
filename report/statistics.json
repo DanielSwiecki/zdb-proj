@@ -1,0 +1,34 @@
+{
+  "Total" : {
+    "transaction" : "Total",
+    "sampleCount" : 1000,
+    "errorCount" : 1000,
+    "errorPct" : 100.0,
+    "meanResTime" : 14.785000000000002,
+    "medianResTime" : 15.0,
+    "minResTime" : 0.0,
+    "maxResTime" : 41.0,
+    "pct1ResTime" : 31.0,
+    "pct2ResTime" : 31.0,
+    "pct3ResTime" : 35.98000000000002,
+    "throughput" : 16.80644022789533,
+    "receivedKBytesPerSec" : 43.9527802053747,
+    "sentKBytesPerSec" : 0.0
+  },
+  "GET /api/course-groups" : {
+    "transaction" : "GET /api/course-groups",
+    "sampleCount" : 1000,
+    "errorCount" : 1000,
+    "errorPct" : 100.0,
+    "meanResTime" : 14.785000000000002,
+    "medianResTime" : 15.0,
+    "minResTime" : 0.0,
+    "maxResTime" : 41.0,
+    "pct1ResTime" : 31.0,
+    "pct2ResTime" : 31.0,
+    "pct3ResTime" : 35.98000000000002,
+    "throughput" : 16.80644022789533,
+    "receivedKBytesPerSec" : 43.9527802053747,
+    "sentKBytesPerSec" : 0.0
+  }
+}
